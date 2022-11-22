@@ -1,0 +1,11 @@
+prog_static: prog.o libmymath.a 
+	gcc -static prog.c -o prog_static -L . -lmymath
+
+libmymath.a: sub.o add.o
+	ar rc libmymath.a sub.o add.o
+
+sub.o: sub.c
+	gcc -c sub.c -o sub.o
+
+add.o: add.c
+	gcc -c add.c -o add.o

@@ -1,0 +1,1 @@
+cmd_/home/jipi/pso/lab2/nasty/nasty.ko := ld -r  -m elf_x86_64  --build-id=sha1  -T scripts/module.lds -o /home/jipi/pso/lab2/nasty/nasty.ko /home/jipi/pso/lab2/nasty/nasty.o /home/jipi/pso/lab2/nasty/nasty.mod.o;  true

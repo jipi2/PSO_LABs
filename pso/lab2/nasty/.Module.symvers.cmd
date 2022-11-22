@@ -1,0 +1,1 @@
+cmd_/home/jipi/pso/lab2/nasty/Module.symvers := sed 's/\.ko$$/\.o/' /home/jipi/pso/lab2/nasty/modules.order | scripts/mod/modpost -m -a  -o /home/jipi/pso/lab2/nasty/Module.symvers -e -i Module.symvers   -T -

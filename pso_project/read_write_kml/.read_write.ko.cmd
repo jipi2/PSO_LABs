@@ -1,0 +1,1 @@
+cmd_/home/jipi/pso_project/read_write_kml/read_write.ko := ld -r  -m elf_x86_64  --build-id=sha1  -T scripts/module.lds -o /home/jipi/pso_project/read_write_kml/read_write.ko /home/jipi/pso_project/read_write_kml/read_write.o /home/jipi/pso_project/read_write_kml/read_write.mod.o;  true

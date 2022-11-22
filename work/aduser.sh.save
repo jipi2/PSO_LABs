@@ -1,0 +1,14 @@
+#!/bin/bash
+
+while read line
+do
+	nume=$(echo $line | cut -d, -f1)
+	prenume=$(echo $line | cut -d.-f2)
+	grupa=$(echo $line | cut -d, -f3)
+	materii=$(echo $line | cut -d, -f4)
+
+	username=${prenume}_${nume
+
+}
+	
+done < "$1"

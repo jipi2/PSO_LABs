@@ -1,0 +1,1 @@
+cmd_/home/jipi/pso_project/read_write_kml/Module.symvers := sed 's/\.ko$$/\.o/' /home/jipi/pso_project/read_write_kml/modules.order | scripts/mod/modpost -m -a  -o /home/jipi/pso_project/read_write_kml/Module.symvers -e -i Module.symvers   -T -

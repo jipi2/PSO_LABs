@@ -1,0 +1,7 @@
+#!/bin/bash
+
+nume=`echo $1 | egrep -o "\/[a-zA-Z
+.]" | egrep -o "[a-zA-Z]+"`
+echo "Nume fisier: $nume"
+len=${#nume}
+echo "Lungime fisier: $len"

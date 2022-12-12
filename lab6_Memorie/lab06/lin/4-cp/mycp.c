@@ -23,7 +23,6 @@ int main(int argc, char *argv[])
 	char *src;
 	char *dst;
 	struct stat statbuf;
-	char buffer[1024];
 
 	DIE(argc != 3, "Usage: ./mycp <from_file> <to_file>");
 
@@ -51,7 +50,6 @@ int main(int argc, char *argv[])
 
 	/* TODO - Copy the input file to the output file */
 	memcpy(dst,src,statbuf.st_size);
-	memcpy(buffer,src,statbuf.st_size);
 
 
 	/* TODO - Clean up */

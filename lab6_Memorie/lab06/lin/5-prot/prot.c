@@ -107,19 +107,26 @@ int main(void)
 	 * Use mprotect to set memory protections based on global 'how' array
 	 * 'how' array keeps protection level for each page
 	 */
-	p = mmap(0,pageSize*3,0,MAP_ANONYMOUS | MAP_SHARED,-1,0);
-	rc = mprotect(p+pageSize,pageSize,PROT_READ);
+	p = mmap(0,pageSize*3,PROT_NONE, MAP_ANONYMOUS | MAP_SHARED,-1,0);
+	/* rc = mprotect(p+pageSize,pageSize,PROT_READ);
+
 	if(rc == -1)
 		exit(-1);
 
 	rc = mprotect(p+pageSize*2,pageSize,PROT_WRITE);
 	if(rc == -1)
-		exit(-1);
+		exit(-1); */
+
+	for(int i=0;i<3;i++)
+	{
+		mprotect(p+i*pageSize, pageSize, how[i]);
+	}
 
 	set_signal();
 
 	/* TODO 1 - Access these pages for read and write */
-	strcpy(buffer,"Ana are mere si pere");
+
+	/* strcpy(buffer,"Ana are mere si pere");
 	bufferLenght = strlen(buffer);
 
 	memcpy(p+pageSize,buffer,bufferLenght);
@@ -133,7 +140,14 @@ int main(void)
 	strcpy(buffer,"");
 	memcpy(buffer,p+pageSize*2,bufferLenght);
 	buffer[bufferLenght] = '\0';
-	printf("%s\n",buffer);
+	printf("%s\n",buffer); */
+
+	char ch;
+	for(int i=0;i<3;i++)
+	{
+		ch = p[i*pageSize+100];
+		p[i*pageSize+120] = 'a';
+	}
 
 
 	restore_signal();

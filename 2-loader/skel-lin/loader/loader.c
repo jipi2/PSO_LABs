@@ -10,6 +10,7 @@
 #include <signal.h>
 #include <sys/mman.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 #include "exec_parser.h"
 
@@ -20,96 +21,32 @@ static so_exec_t *exec;
 static struct sigaction *default_action;
 static int exec_descriptor = 0;
 
-typedef struct PAGE_LIST
-{
-	void *page_addr;
-	struct PAGE_LIST *next;
-
-}Page_list;
-
-static struct PAGE_LIST *head = NULL;
-
-void Add_Page(struct PAGE_LIST**head,void *addr)
-{
-	struct PAGE_LIST *new_node = (struct PAGE_LIST *)malloc(sizeof(struct PAGE_LIST));
-	new_node->page_addr = addr;
-	new_node->next = NULL;
-
-	if(*head == NULL)
-	{
-		*head = new_node;
-		return;
-	}
-
-	struct PAGE_LIST *it_node = *head;
-
-	while(it_node->next != NULL)
-		it_node = it_node->next;
-
-	it_node->next = new_node;
-
-}
-
-int Exists_In_List(struct PAGE_LIST *head, void *page_addr)
-{
-	while(head != NULL)
-	{
-		if(((char*)page_addr - (char*)head->page_addr) < getpagesize() && (page_addr - head->page_addr) >=0)
-			return OK;
-	}
-	return N_OK;
-}
-
 static int Get_Index_Segment(void *page_addr)
 {
 	for(int i=0;i<exec->segments_no;i++)
 	{
-		if(page_addr >= exec->segments[i].vaddr && (exec->segments[i].vaddr + exec->segments[i].mem_size) >= page_addr)
+		if((int *) page_addr >= (int *)exec->segments[i].vaddr && ((int)exec->segments[i].vaddr + exec->segments[i].mem_size) >= (int)page_addr)   //merge si asa
 			return i;
 	}
 	
-	return -1; //inseamna ca nu adresa nu este in niciun segment
+	return N_OK; //inseamna ca adresa nu este in niciun segment
 }
 
-size_t My_Fread(void *buffer, size_t bytes_to_be_read)
-{
-	size_t bytes_read = 0;
-	size_t count = 0;
-
-	while(bytes_read < bytes_to_be_read)
-	{
-		count = read(exec_descriptor, buffer+bytes_read, bytes_to_be_read-bytes_read);
-
-		if(count == -1)
-			return -1;
-
-		if(count == 0)
-			return bytes_read;
-
-		bytes_read += count;
-		count = 0;
-	}
-	return bytes_read;
-}
-
-void From_File_to_Memory(void *page_mapped, so_seg_t *segment, size_t offset)
+void Map_to_Memory(void *page_mapped, so_seg_t *segment, size_t offset)
 {
 	int page_size = getpagesize();
-	char buffer[page_size];
+	char *pSrc = NULL;
 
-	lseek(exec_descriptor, segment->offset + offset, SEEK_SET);
+	pSrc = mmap(0,page_size,PROT_READ, MAP_SHARED, exec_descriptor,segment->offset+offset);
 
 	if(segment->file_size >= offset+page_size)
-	{
-		My_Fread(buffer, page_size);
-		memcpy(page_mapped, buffer, page_size);
-	}
+		memcpy(page_mapped, pSrc, page_size);
+
 	else if (segment->file_size >= offset)
 	{
-		My_Fread(buffer, segment->file_size - offset);
-		memset(buffer+segment->file_size-offset, 0, page_size+offset-segment->file_size);
-		memcpy(page_mapped, buffer, page_size);
+		memcpy(page_mapped, pSrc, segment->file_size-offset);
 	}
+
 	else if (segment->file_size < offset)
 		memset(page_mapped, 0, page_size);
 
@@ -134,9 +71,9 @@ static void segv_handler(int signum, siginfo_t *info, void *context)
 	}
 
 	seg_addr = info->si_addr;
-	page_start_addr = ALIGN_DOWN((int)seg_addr, page_size);
+	page_start_addr = (void *)ALIGN_DOWN((int)seg_addr, page_size);
 	segment_index = Get_Index_Segment(seg_addr);
-	if(segment_index == -1)
+	if(segment_index == N_OK)
 	{
 		default_action->sa_sigaction(signum, info, context);
 		return;
@@ -144,13 +81,11 @@ static void segv_handler(int signum, siginfo_t *info, void *context)
 
 	segment = &exec->segments[segment_index];
 
-	if(Exists_In_List(head, seg_addr) == OK)
+	if(info->si_code == SEGV_ACCERR)
 	{
 		default_action->sa_sigaction(signum, info, context);
 			return;
 	}
-	
-	Add_Page(&head, page_start_addr);
 
 	page_mapped = mmap(page_start_addr,
 						page_size, 
@@ -163,8 +98,8 @@ static void segv_handler(int signum, siginfo_t *info, void *context)
 	segm_offset = (char *)info->si_addr - (char *)segment->vaddr;
 	page_offset = segm_offset % page_size;
 	segm_offset -= page_offset;
-	From_File_to_Memory(page_mapped, segment, segm_offset);
-
+	Map_to_Memory(page_mapped, segment, segm_offset);
+	mprotect(page_mapped, page_size, segment->perm);
 }
 
 int so_init_loader(void)

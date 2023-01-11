@@ -72,13 +72,13 @@ void *producer_fn(void *arg)
 		item_to_insert = i;
 
 		/* TODO - lock mutex */
-		pthread_mutex_lock(&mutex);
+		pthread_mutex(&mutex);
 
 		/* TODO - if common area is full
 		 *		then wait until the common area is not full
 		 */
 
-		if(is_buffer_full(&common_area) == 1)
+		if(common_area.count == BUFFER_SIZE)
 		{
 			rc = pthread_cond_wait(&buffer_not_full, &mutex); 
 			if(rc < 0)
@@ -92,17 +92,16 @@ void *producer_fn(void *arg)
 
 		printf("Inserted item %d\n", item_to_insert);
 
-		insert_item(&common_area, item_to_insert);
+		common_area.buff[common_area.count++] = i;
 
 		/* TODO - if we have one element in common area
 		 *		then signal that the buffer is not empty
 		 */
 
-		if(is_buffer_empty(&common_area) == 0)
-			pthread_cond_signal(&buffer_not_empty);		
+		pthread_cond_signal(&buffer_not_empty);		
 
 		/* TODO - unlock mutex */
-		pthread_mutex_unlock(&mutex);
+		pthread_mutex(&mutex);
 
 		if (delay == RAND_DELAY)
 			sleep(rand() % 3);
@@ -122,36 +121,20 @@ void *consumer_fn(void *arg)
 
 	for (i = 0; i < NR_ITERATIONS; i++) {
 		/* TODO - lock mutex */
-		pthread_mutex_lock(&mutex);
 
 		/* TODO - if common area is empty
 		 *		then wait until the common area is not empty
 		 */
-		
-		if(is_buffer_empty(&common_area) == 1)
-		{
-			rc = pthread_cond_wait(&buffer_not_empty, &mutex);
-			if(rc < 0)
-			{
-				printf("Ceva eroare la consumer\n");
-				exit(-1);
-			}
-		}
 
 		/* TODO - remove item from common area */
-		item_consumed = remove_item(&common_area);
 
 		printf("\t\tConsumed item %d\n", item_consumed);
 
 		/* TODO - if we have BUFFER_SIZE - 1 elements in common area
 		 *		then signal that the buffer is not full
 		 */
-	
-		if(is_buffer_full(&common_area) == 0)
-			pthread_cond_signal(&buffer_not_full);
 
 		/* TODO - unlock mutex */
-		pthread_mutex_unlock(&mutex);
 
 		if (delay == RAND_DELAY)
 			sleep(rand() % 3);

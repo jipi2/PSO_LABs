@@ -68,24 +68,40 @@ static void thread_work(int arg)
 
 static int one_time_init(struct once_struct *once_control, void (*f)(void))
 {
-	int rc;
+	int rc = 0;
 
 	/* TODO - Each time a thread gets here, increment once_control->refcount.
 	 * Call the f() function only if this is the first thread that got here.
 	 */
-	(*f)();
+
+	pthread_mutex_lock(&once.mutex);
+	once.refcount ++;
+	if(once.refcount == 1)
+		rc = 1;
+	pthread_mutex_unlock(&once.mutex); 
+
+	if(rc == 1)
+		(*f)();
 
 	return 0;
 }
 
 static int one_time_deinit(struct once_struct *once_control, void (*f)(void))
 {
-	int rc;
+	int rc = 0;
 
 	/* TODO - Each time a thread gets here, decrement once_control->refcount.
 	 * Call the f() function only if this is the last thread that got here.
 	 */
-	(*f)();
+
+	pthread_mutex_lock(&once.mutex);
+	once.refcount --;
+	if(once.refcount == 0)
+		rc = 1;
+	pthread_mutex_unlock(&once.mutex); 
+
+	if(rc == 1)
+		(*f)();
 
 	return 0;
 }

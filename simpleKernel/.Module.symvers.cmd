@@ -1,1 +1,0 @@
-cmd_/home/jipi/simpleKernel/Module.symvers := sed 's/\.ko$$/\.o/' /home/jipi/simpleKernel/modules.order | scripts/mod/modpost -m -a  -o /home/jipi/simpleKernel/Module.symvers -e -i Module.symvers   -T -

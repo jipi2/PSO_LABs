@@ -1,0 +1,1 @@
+cmd_/home/jipi/PSO_LABs/pso_project/KernelModulePoli/hello.mod := { echo  /home/jipi/PSO_LABs/pso_project/KernelModulePoli/hello.o;  echo; } > /home/jipi/PSO_LABs/pso_project/KernelModulePoli/hello.mod

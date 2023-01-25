@@ -1,0 +1,1 @@
+cmd_/home/jipi/PSO_LABs/pso_project/KernelModulePoli/Module.symvers := sed 's/\.ko$$/\.o/' /home/jipi/PSO_LABs/pso_project/KernelModulePoli/modules.order | scripts/mod/modpost -m -a  -o /home/jipi/PSO_LABs/pso_project/KernelModulePoli/Module.symvers -e -i Module.symvers   -T -

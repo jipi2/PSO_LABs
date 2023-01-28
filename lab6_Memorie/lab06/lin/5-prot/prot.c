@@ -126,7 +126,7 @@ int main(void)
 
 	/* TODO 1 - Access these pages for read and write */
 
-	/* strcpy(buffer,"Ana are mere si pere");
+	strcpy(buffer,"Ana are mere si pere");
 	bufferLenght = strlen(buffer);
 
 	memcpy(p+pageSize,buffer,bufferLenght);
@@ -140,14 +140,16 @@ int main(void)
 	strcpy(buffer,"");
 	memcpy(buffer,p+pageSize*2,bufferLenght);
 	buffer[bufferLenght] = '\0';
-	printf("%s\n",buffer); */
+	printf("%s\n",buffer); 
 
-	char ch;
+	/* char ch;
 	for(int i=0;i<3;i++)
 	{
-		ch = p[i*pageSize+100];
-		p[i*pageSize+120] = 'a';
-	}
+		/* ch = p[i*pageSize+100];
+		p[i*pageSize+120] = 'a'; 
+		ch = p[pageSize*i];
+		p[i*pageSize] = 'a';
+	} */
 
 
 	restore_signal();

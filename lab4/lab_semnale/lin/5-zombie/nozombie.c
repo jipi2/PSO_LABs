@@ -13,6 +13,7 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 #include "utils.h"
 
@@ -23,14 +24,9 @@
  */
 static void ignore(int signo)
 {
-	switch (signo)
+	if(signo == SIGCHLD)
 	{
-	case SIGCHLD:
-		printf("Ignore");
-		break;
-	
-	default:
-		break;
+		wait(NULL);
 	}
 }
 
@@ -43,7 +39,7 @@ static void set_signals(void)
 
 	/* TODO - ignore SIGCHLD */
 
-	sa.sa_flags = SA_NOCLDWAIT;
+	sa.sa_flags = SIG_IGN;
 	
 	sa.sa_handler = ignore;
 
@@ -55,10 +51,10 @@ static void set_signals(void)
 int main(void)
 {
 	pid_t pid;
-	pid_t pidParent;
+	//pid_t pidParent;
 	/* TODO - create child process without waiting */
 	
-	pidParent = getpid();
+	//pidParent = getpid();
 	set_signals();
 	pid  = fork();
 	if(pid == 0)
@@ -67,13 +63,10 @@ int main(void)
 		sigqueue(pidParent,SIGCHLD, sig); */
 		exit(0);
 	}
-	else
-	{
-		sleep(TIMEOUT);
-	}
 
 
 	/* TODO - sleep */
+	sleep(TIMEOUT);
 
 	return 0;
 }

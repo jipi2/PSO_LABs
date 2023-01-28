@@ -6,7 +6,7 @@
 #include <arpa/inet.h>
 #include <stdlib.h>
 
-#define PORT_NUMBER 5050
+#define PORT_NUMBER 5051
 #define IP_ADDR "127.0.0.1"
 
 #define BUFF_SIZE 4096
@@ -26,6 +26,64 @@ void ls_func(char *buffer, int *sock)
     }
 
     printf("%s\n", buffer);
+}
+
+void get_func(char *command, int *sock)
+{
+    int status = 0;
+    int size = 0;
+    char *buffer = NULL;
+    int n = 0;
+    int bytesRed = 0;
+
+    read(*sock, &status, sizeof(int));
+
+    printf("Status = %d\n", status);
+
+    if(status == 0)
+        return;
+    
+    read(*sock, &size, sizeof(int));
+    printf("Size = %d\n", size);
+
+    buffer = (char*)malloc(sizeof(char)*size);
+    strcpy(buffer,"");
+
+    while(bytesRed < size)
+    {
+        n = read(*sock, buffer+bytesRed, size);
+        buffer[n+bytesRed] = '\0';
+        bytesRed += n;
+    }
+
+    printf("%s\n", buffer);
+
+}
+
+void get_delete(char *command, int *sock)
+{
+    int status;
+    read(*sock, &status, sizeof(int));
+
+    printf("Status = %d\n", status);
+}
+
+void put_func(char *command, int *sock)
+{
+    int status = 0;
+
+    read(*sock, &status, sizeof(int));
+
+    printf("Status = %d\n", status);
+}
+
+void update_func(int *sock)
+{
+    int status = 0;
+
+    read(*sock, &status, sizeof(int));
+
+    printf("Status = %d\n", status);
 }
 
 int main()
@@ -63,22 +121,37 @@ int main()
     buffer[dataSize] = '\0';
     printf("%s", buffer);
 
-    do
+ 
+    fgets(command, 4096, stdin);
+    command[strlen(command) - 1] = '\0';
+    write(socketDescriptor, command, strlen(command));
+
+    /* dataSize = strlen(command);
+    send(socketDescriptor, &dataSize, sizeof(int),0);
+    send(socketDescriptor, command, dataSize, 0); */
+
+    if (strcmp(command, "list") == 0)
+        ls_func(buffer, &socketDescriptor);
+    else if(strstr(command, "get"))
     {
-        fgets(command, 4096, stdin);
-        command[strlen(command) - 1] = '\0';
-        write(socketDescriptor, command, strlen(command));
+        get_func(command, &socketDescriptor);    //get;<numar_octeti_nume_fisier>;<nume_fisier>
+    }
+    else if (strstr(command, "put;"))
+    {
+        put_func(command, &socketDescriptor);
+    }
+    else if (strstr(command, "delete"))
+    {
+        get_delete(command, &socketDescriptor);
+    }
+    else if (strstr(command, "update"))
+    {
+        update_func(&socketDescriptor);
+    }
 
-        /* dataSize = strlen(command);
-        send(socketDescriptor, &dataSize, sizeof(int),0);
-        send(socketDescriptor, command, dataSize, 0); */
+    printf("\n-----------------------------------------------------------\n");
 
-        if (strcmp(command, "ls") == 0)
-            ls_func(buffer, &socketDescriptor);
-
-        printf("\n-----------------------------------------------------------\n");
-
-    } while (strcmp(command, "bye") != 0);
+   
 
     close(socketDescriptor);
 

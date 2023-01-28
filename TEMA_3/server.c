@@ -8,16 +8,22 @@
 #include <pthread.h>
 #include <dirent.h>
 #include <signal.h>
+#include <sys/sendfile.h>
+#include <fcntl.h>
 
-#define PORT_NUMBER 5050
+#define PORT_NUMBER 5051
 #define IP_ADDR "127.0.0.1"
 
 #define BUFF_SIZE 4096
 #define OK 1
 #define N_OK -1
 
-#define LS "ls"
+#define LIST "list"
 #define BYE "bye"
+#define GET "get"
+#define DELETE "delete"
+#define PUT "put"
+#define UPDATE "update"
 
 struct parameter
 {
@@ -27,6 +33,18 @@ struct parameter
 pthread_key_t key;
 pthread_t threadIds[10];
 int thread_count = 0;
+pthread_mutex_t counterMutex;
+
+void init_mutexes()
+{
+    pthread_mutex_init(&counterMutex, NULL);
+}
+
+void destroy_mutexes()
+{
+    pthread_mutex_destroy(&counterMutex);
+}
+
 
 char *ls_func()
 {
@@ -117,6 +135,368 @@ void ls_send(char *command, int *sock)
     //free(answ);
 }
 
+void send_file(char *filename, int *client)
+{
+    int size = 0;
+    int status = 0;
+    int fd = 0;
+    off_t bytesWrote = 0;
+    int n=0;
+    
+
+    fd = open(filename, O_RDONLY);
+    if(fd < 0)
+    {
+        status = 0;
+        write(*client, &status,sizeof(int));
+        return ;
+    }
+    else
+    {
+        status = 1;
+        write(*client, &status, sizeof(int));
+    }
+
+    size = lseek(fd, 0, SEEK_END);
+    write(*client, &size, sizeof(int));
+
+    while(bytesWrote < size)
+    {
+        n = sendfile(*client, fd, &bytesWrote, size);
+        bytesWrote += n;
+    }
+
+}
+
+char *getFileName(char *command)
+{
+    char *p;
+    char *fileName = NULL;
+    char delim[] = ";:\n ";
+    int numBytes = 0;
+
+    p=strtok(command, delim);
+    p=strtok(NULL, delim);
+    numBytes = atoi(p);
+
+    fileName = (char*)malloc(sizeof(char)*numBytes);
+
+
+    p=strtok(NULL, delim);
+
+    if(strlen(p)>numBytes)
+        return NULL;
+
+    strcpy(fileName, p);
+    return fileName;
+}
+
+void get_funct(char *command, int *client)  
+{
+    //comanda clientului este separata prin ";"
+    char *fileName;
+
+    printf("%s\n", command);
+
+    fileName = getFileName(command);
+
+    send_file(fileName, client);
+
+    free(fileName);
+}
+
+int delete_file(char *fileName)
+{
+    int status = 0;
+    DIR *dir;
+    struct dirent *entry;
+
+    if(fileName == NULL)
+    {
+        return status;
+    }
+
+    if(strcmp(fileName,".") == 0 || strcmp(fileName,"..") == 0 || strcmp(fileName, "server") == 0 ||
+                strcmp(fileName, "server.c") == 0 || strcmp(fileName, "client") == 0 || strcmp(fileName, "client.c") == 0 || strcmp(fileName, "Makefile") == 0)
+    {
+        return 0;
+    }
+
+    dir = opendir(".");
+    if (dir != NULL) 
+    {
+        while ((entry = readdir(dir)) != NULL) 
+        {
+            if (entry->d_type == DT_REG) 
+            {
+                if (strcmp(entry->d_name, fileName) == 0) 
+                {
+                    if (unlink(fileName) == 0) 
+                    {
+                        status = 1;
+                        return status;
+                    }
+                    else 
+                    {
+                        return status;
+                    }
+                }
+            }
+        }
+        closedir(dir);
+    }
+    else
+    {
+        return status;
+    }
+
+    return status;
+
+}
+
+void deleteFunct(char *command, int *client)
+{
+    char *fileName;
+    int status = 0;
+
+    printf("%s\n", command);
+    fileName = getFileName(command);
+
+    status = delete_file(fileName);
+    write(*client, &status, sizeof(int));
+
+    free(fileName);
+}
+
+int make_file(char *fileName, char *content, int sizeContent)
+{
+    int fd;
+    int bytesWrote = 0;
+    int n=0;
+
+    fd = open(fileName, O_WRONLY | O_CREAT, 0644);
+    if(fd < 0)
+    {
+        return 0;
+    }
+
+
+    while(bytesWrote < sizeContent)
+    {
+        n = write(fd, content+bytesWrote, sizeContent - bytesWrote);
+        bytesWrote += n;
+        if(n < 0)
+        {
+            close(fd);
+            return 0;
+        }
+    }
+
+    close(fd);
+
+    return 1;
+}
+
+void putFunct(char *command, int *client)
+{
+    char *p;
+    char *fileName;
+    int sizeNameF = 0;
+    char delim[] = ";";
+    int sizeContent = 0;
+    char *content = NULL;
+    int status = 0;
+
+    p=strtok(command, delim);
+    p=strtok(NULL,delim);
+    sizeNameF = atoi(p);
+
+    p=strtok(NULL,delim);
+    if(strlen(p)<sizeNameF)
+    {
+        write(*client, &status, sizeof(int));
+        return;
+    }
+
+    fileName = (char*)malloc(sizeof(char)*sizeNameF);
+    strcpy(fileName, p);
+
+    p = strtok(NULL, delim); 
+    sizeContent = atoi(p);
+
+    p = strtok(NULL, delim);
+    content = (char*)malloc(sizeof(char)*sizeContent);
+  
+    strncpy(content, p, sizeContent);
+    
+    content[sizeContent] = '\0';
+
+    printf("%s\n", fileName);
+    printf("%d\n", sizeContent);
+    printf("%s\n", content);
+    
+    status = make_file(fileName, content, sizeContent);
+
+    write(*client, &status, sizeof(int));
+
+    free(fileName);
+    free(content);
+    
+}
+
+char *getOpcode(char *command)
+{
+    char *aux = NULL;
+    int i=0;
+    int size = 0;
+
+    for(i=0;i<strlen(command);i++)
+    {
+        size++;
+        if(command[i] == ';')
+        {
+            break;
+        }
+    }
+
+    aux = (char*)malloc(sizeof(char)*size);
+    strncpy(aux, command, size-1);
+    aux[size-1] = '\0';
+
+    return aux;
+}
+
+int updateFile(char *fileName, int startByte,char *content, int sizeContent)
+{
+    int fd;
+    int initFileSize = 0;
+    int firstPartSize = 0;
+    int lastPartSize = 0;
+    int allContentSize = 0;
+    int n=0;
+    int bytesWrote = 0;
+    char *allContent = NULL;
+    char *firstPart = NULL;
+    char *lastPart = NULL;
+
+    fd = open(fileName, O_RDWR);
+    if(fd < 0)
+    {
+        return 0;
+    }
+
+    initFileSize = lseek(fd, 0, SEEK_END);
+    if(startByte >= initFileSize)
+    {
+        while(bytesWrote < sizeContent)
+        {
+            n = write(fd, content+bytesWrote, sizeContent - bytesWrote);
+            bytesWrote+=n;
+            if(n<0)
+            {
+                close(fd);
+                return 0;
+            }
+        }
+        return 1;
+    }
+    else
+    {
+        lseek(fd, 0, SEEK_SET);
+        firstPart = (char*)malloc(sizeof(char)*startByte);
+        read(fd, firstPart, startByte);
+        firstPart[startByte] = '\0';
+
+        int n1 = lseek(fd, startByte, SEEK_SET);
+        lseek(fd, 0, SEEK_SET);
+        int n2 = lseek(fd, 0, SEEK_END);
+
+        lastPartSize = n2-n1;
+
+        lseek(fd, startByte, SEEK_SET);
+        lastPart = (char*)malloc(sizeof(char)*lastPartSize);
+        read(fd, lastPart, lastPartSize);
+        lastPart[lastPartSize] = '\0';
+
+        allContentSize = n2+sizeContent;
+
+        allContent = (char*)malloc(sizeof(char)*allContentSize);
+
+        strcpy(allContent,firstPart);
+        strcat(allContent, content);
+        strcat(allContent, lastPart);
+
+        bytesWrote = 0;
+        n=0;
+
+        lseek(fd, 0, SEEK_SET);
+        while(bytesWrote < allContentSize)
+        {
+            n = write(fd, allContent+bytesWrote, allContentSize - bytesWrote);
+            bytesWrote+=n;
+            if(n<0)
+            {
+                close(fd);
+                return 0;
+            }
+        }
+        close(fd);
+
+    }
+    return 1;
+
+
+}
+
+void updateFunct(char *command, int *client)
+{
+    char *p;
+    char *fileName;
+    int sizeNameF = 0;
+    char delim[] = ";";
+    int sizeContent = 0;
+    char *content = NULL;
+    int status = 0;
+    int startByte = 0;
+
+    p=strtok(command, delim);
+    p=strtok(NULL,delim);
+    sizeNameF = atoi(p);
+
+    p=strtok(NULL,delim);
+    if(strlen(p)>sizeNameF)
+    {
+        write(*client, &status, sizeof(int));
+
+        return;
+    }
+
+    fileName = (char*)malloc(sizeof(char)*sizeNameF);
+    strcpy(fileName, p);
+
+    p = strtok(NULL, delim);
+    startByte = atoi(p);
+
+    p = strtok(NULL, delim);
+    sizeContent = atoi(p);
+    content = (char*)malloc(sizeof(char)*sizeContent);
+    strcpy(content, "");
+
+    p = strtok(NULL, delim);
+    strncpy(content, p, sizeContent);
+    content[sizeContent] = '\0';
+
+    printf("%s\n%d\n%s\n%d\n", fileName, startByte, content, sizeContent);
+    
+    status = updateFile(fileName, startByte,content, sizeContent);
+
+    write(*client, &status, sizeof(status));
+
+    free(fileName);
+    free(content);
+
+}
+
 void *thread_client_command(void *param)
 {
     // -----------------------------------------------------------------------------------------------------------------
@@ -128,7 +508,7 @@ void *thread_client_command(void *param)
     int dataSize;
     int clientSock;
     char command[BUFF_SIZE];
-
+    char *opcode = NULL;
 
     pthread_setspecific(key, &p->clientSocket);
     void *ptr = pthread_getspecific(key);
@@ -145,28 +525,55 @@ void *thread_client_command(void *param)
 
     //------------------------------------------------------------------------------------------------------------------
 
-    do
+    dataSize = read(clientSock, command, BUFF_SIZE);
+    if(dataSize < 0)
     {
-        dataSize = read(clientSock, command, BUFF_SIZE);
-        command[dataSize] = '\0';
+        close(clientSock);
+        free(opcode);
 
-        if (strcmp(command, LS) == 0)
-        {
-            ls_send(command, &clientSock);
-        }
-        else if(strcmp(command, BYE)==0)
-        {
-            break;
-        }
+        pthread_mutex_lock(&counterMutex);
+        thread_count--;
+        pthread_mutex_unlock(&counterMutex);
 
+        return NULL;
+    }
+    command[dataSize] = '\0';
 
-    } while (strcpy(command, "bye") != 0);
+    if (strcmp(command, LIST) == 0)
+    {
+        ls_send(command, &clientSock);
+    }
+
+    opcode = getOpcode(command);
+
+    if (strcmp(opcode, GET) == 0)
+    {
+        get_funct(command, &clientSock);
+    }
+    else if (strcmp(opcode, DELETE) == 0)
+    {
+        deleteFunct(command, &clientSock);
+    }
+    else if(strcmp(opcode, PUT) == 0)
+    {
+        putFunct(command, &clientSock);
+    }
+    else if (strcmp(opcode, UPDATE) == 0)
+    {
+        updateFunct(command, &clientSock);
+    }
+    else if(strcmp(opcode, BYE)==0)
+    {
+        printf("%s\n", command);
+    }
+
 
     close(clientSock);
+    free(opcode);
 
-    //mutex
+    pthread_mutex_lock(&counterMutex);
     thread_count--;
-    //mutex
+    pthread_mutex_unlock(&counterMutex);
 
     return NULL;
 }
@@ -181,22 +588,32 @@ void exit_handle(int signum)
         {
             pthread_join(threadIds[i],NULL);
         }
+
+        destroy_mutexes();
+        exit(0);
     }
 }
+
+void set_signals()
+{
+    struct sigaction sa;
+
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = exit_handle;
+    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGTERM, &sa, NULL);
+}
+
+
 int main()
 {
     int listenSocket, connectSocket;
     struct sockaddr_in serverAddr, clientAddr;
     int clientAddrLength;
     struct parameter param;
-    struct sigaction sa;
 
-    memset(&sa, 0, sizeof(sa));
-    sa.sa_flags = SA_RESETHAND;
-    sa.sa_handler = exit_handle;
-    sigaction(SIGINT, &sa, NULL);
-    sigaction(SIGTERM, &sa, NULL);
-
+    set_signals();
+    init_mutexes();
     pthread_key_create(&key, NULL);
 
     bzero(&serverAddr, sizeof(serverAddr));
